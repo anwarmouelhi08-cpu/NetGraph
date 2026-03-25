@@ -1,0 +1,16 @@
+# Fichier de données de test
+# Format : A id "titre" source score jour mois annee heure minute
+#          C id_src id_dest
+
+A 0 "La_verite_sur_le_vaccin_alerte_secret_choc" page_TunisieActu 8 15 3 2025 9 0
+A 1 "Etude_exclusif_urgent_OMS_choc_complot" Kapitalis 45 15 3 2025 8 0
+A 2 "Partagez_avant_suppression_urgent_choc_alerte" TunisieNumerique 5 15 3 2025 11 0
+A 3 "Communique_officiel_MinSante_MinistereSante" MinistereSante 90 15 3 2025 7 0
+A 4 "Wake_up_complot_interdit_censure_vaccin" RTArabic 15 15 3 2025 14 0
+
+C 0 1 # Vaccin_cache cite Etude_OMS
+C 0 3 # Vaccin_cache cite Communique
+C 1 3 # Etude_OMS cite Communique
+C 2 0 # Partagez_avant cite Vaccin_cache
+C 4 0 # Alerte_vaccin cite Vaccin_cache
+C 4 2 # Alerte_vaccin cite Partagez_avant
