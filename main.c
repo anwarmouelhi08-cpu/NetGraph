@@ -7,15 +7,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "graphe.h"
+#include <string.h>
 /************/
-int lireEntier(int *x)
-{
+
+
+int lireEntier(int *x) {
     while (scanf("%d", x) != 1) {
-        printf("Entrée invalide, recommencez : ");
+        printf("Entree invalide, recommencez : ");
         while (getchar() != '\n');
     }
     return 1;
-}/************/
+}
+
+int lireEntierBorne(const char *invite, int min, int max) {
+    int val;
+    do {
+        printf("%s", invite);
+        lireEntier(&val);
+        if (val < min || val > max)
+            printf("Valeur invalide ! Doit etre entre %d et %d, recommencez.\n", min, max);
+    } while (val < min || val > max);
+    return val;
+}
+
 
 void afficherMenu() {
     printf("\n===== Reseau d'Information =====\n");
@@ -65,28 +79,46 @@ int main() {
             g = chargerGraphe(filename);
             if (g == NULL) printf("Echec du chargement.\n");
             break;
+case 2:
+    if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
 
-        case 2:
-            /* ajouter un article */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            art = elementCreer();
-            printf("id : "); lireEntier(&art->id);
-            printf("score (0-100) : "); lireEntier(&art->score_fiabilite);
+    printf("id : ");
+    lireEntier(&id);
 
-            printf("jour mois annee : ");
-            lireEntier(&art->jour);
-            lireEntier(&art->mois);
-            lireEntier(&art->annee);
+    if (id < 0) {
+        printf("Erreur : id doit etre positif.\n");
+        break;
+    }
+    if (id < g->V && g->articles[id] != ELEMENT_VIDE) {
+        printf("Erreur : id %d deja utilise.\n", id);
+        break;
+    }
 
-            printf("heure minute : ");
-            lireEntier(&art->heure);
-            lireEntier(&art->minute);
-            if (!ajouterArticle(g, art)) {
-                elementDetruire(art);
-                printf("Echec ajout article.\n");
-}
-            break;
+    art = elementCreer();
+    art->id = id;
 
+    while (getchar() != '\n');
+    printf("titre  : ");
+    fgets(art->titre, sizeof(art->titre), stdin);
+    art->titre[strcspn(art->titre, "\n")] = '\0';
+
+    printf("source : ");
+    scanf("%49s", art->source);
+
+    art->score_fiabilite = lireEntierBorne("score  (0-100)     : ", 0,    100);
+    art->jour            = lireEntierBorne("jour   (1-31)      : ", 1,    31);
+    art->mois            = lireEntierBorne("mois   (1-12)      : ", 1,    12);
+    art->annee           = lireEntierBorne("annee  (1900-2100) : ", 1900, 2100);
+    art->heure           = lireEntierBorne("heure  (0-23)      : ", 0,    23);
+    art->minute          = lireEntierBorne("minute (0-59)      : ", 0,    59);
+
+    if (!ajouterArticle(g, art)) {
+        elementDetruire(art);
+        printf("Echec ajout article.\n");
+    } else {
+        printf("Article ajoute avec succes (id=%d).\n", art->id);
+    }
+    break;
         case 3:
             /* ajouter une citation */
             if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
@@ -94,7 +126,7 @@ int main() {
 
             /**************/
             if (!lireEntier(&idSrc)) {
-                printf("Entrée invalide.\n");
+                printf("Entree invalide.\n");
                 break;
             }
 

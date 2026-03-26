@@ -114,14 +114,31 @@ void detruireGraphe(grapheReseau g) {
 
 /* ajouter un article dans le tableau */
 int ajouterArticle(grapheReseau g, ELEMENT art) {
-    if (art->id < 0 || art->id >= g->V) {
-        printf("id %d invalide\n", art->id);
+    int i;
+
+    if (art->id < 0) {
+        printf("id invalide\n");
         return 0;
     }
+
+    if (art->id >= g->V) {
+        int nouvelleV = art->id + 1;
+        g->articles = realloc(g->articles, nouvelleV * sizeof(ELEMENT));
+        g->adjList  = realloc(g->adjList,  nouvelleV * sizeof(LISTE));
+        g->degre_in = realloc(g->degre_in, nouvelleV * sizeof(int));
+        for (i = g->V; i < nouvelleV; i++) {
+            g->articles[i] = ELEMENT_VIDE;
+            g->adjList[i]  = listeCreer();
+            g->degre_in[i] = 0;
+        }
+        g->V = nouvelleV;
+    }
+
     if (g->articles[art->id] != ELEMENT_VIDE) {
         printf("article %d existe deja\n", art->id);
         return 0;
     }
+
     g->articles[art->id] = art;
     return 1;
 }
