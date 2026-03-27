@@ -220,8 +220,13 @@ int supprimerCitation(grapheReseau g, int idSrc, int idDest) {
     int pos;
     ELEMENT e;
 
+    if (!g) return 0;
+    if (idSrc < 0 || idSrc >= g->V || idDest < 0 || idDest >= g->V) {
+        printf("id invalide.\n");
+        return 0;
+    }
     if (g->articles[idSrc] == ELEMENT_VIDE || g->articles[idDest] == ELEMENT_VIDE) {
-        printf("article(s) inexistant(s)\n");
+        printf("article(s) inexistant(s).\n");
         return 0;
     }
 
@@ -230,11 +235,12 @@ int supprimerCitation(grapheReseau g, int idSrc, int idDest) {
         if (e != NULL && e->id == idDest) {
             supprimer(g->adjList[idSrc], pos);
             g->degre_in[idDest]--;
+            printf("Citation %d -> %d supprimee.\n", idSrc, idDest);
             return 1;
         }
     }
 
-    printf("citation %d -> %d introuvable\n", idSrc, idDest);
+    printf("Citation %d -> %d introuvable.\n", idSrc, idDest);
     return 0;
 }
 
@@ -553,34 +559,36 @@ void chainePropagation(grapheReseau g, int idSrc)
 
 void simulerPropagation(grapheReseau g, int idSrc) {
     int *visite, *niveaux;
-    int pos, niv, nbAtteints, nivMax;
+    int i, pos, niv, nbAtteints, nivMax, nivCourant;
     ELEMENT courant, e;
     LISTE file;
 
-    if (g->articles[idSrc] == ELEMENT_VIDE) {
-        printf("article %d introuvable\n", idSrc);
-        return;
-    }
+    if (!g || idSrc < 0 || idSrc >= g->V) {
+    printf("id %d invalide.\n", idSrc);
+    return;
+}
+if (g->articles[idSrc] == ELEMENT_VIDE) {
+    printf("article %d introuvable.\n", idSrc);
+    return;
+}
 
-    visite  = (int *) calloc(g->V, sizeof(int));
-    niveaux = (int *) calloc(g->V, sizeof(int));
-    if (visite == NULL || niveaux == NULL) {
+    visite  = (int *)calloc(g->V, sizeof(int));
+    niveaux = (int *)calloc(g->V, sizeof(int));
+    if (!visite || !niveaux) {
         printf("erreur malloc\n");
         free(visite); free(niveaux);
         return;
     }
 
     file = listeCreer();
-
     inserer(file, g->articles[idSrc], 1);
     visite[idSrc]  = 1;
     niveaux[idSrc] = 0;
+    nbAtteints     = 0;
+    nivMax         = 0;
+    nivCourant     = -1;  /* niveau en cours d'affichage */
 
-    nbAtteints = 0;
-    nivMax     = 0;
-
-    printf("Simulation BFS depuis %s :\n\n", g->articles[idSrc]->titre);
-
+    printf("Simulation BFS depuis %s :\n", g->articles[idSrc]->titre);
 
     while (!estVide(file)) {
         courant = recuperer(file, 1);
@@ -588,39 +596,39 @@ void simulerPropagation(grapheReseau g, int idSrc) {
 
         niv = niveaux[courant->id];
         if (niv > nivMax) nivMax = niv;
-
-        printf("  Niveau %d : %s\n", niv, courant->titre);
         nbAtteints++;
 
-        /* enfiler les articles directement cites par courant */
-        /* chercher les articles qui citent courant */
+        /* nouveau niveau : sauter une ligne et afficher le numero */
+        if (niv != nivCourant) {
+            if (nivCourant != -1) printf("\n"); /* fin de la ligne precedente */
+            printf("  Niveau %d : %s", niv, courant->titre);
+            nivCourant = niv;
+        } else {
+            /* meme niveau : continuer sur la meme ligne */
+            printf(", %s", courant->titre);
+        }
 
-        /********************************************/
-        for (int i = 0; i < g->V; i++) {
-            if (!visite[i]) {
-                for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-
-                    e = recuperer(g->adjList[i], pos);
-
-                    if (e != NULL && e->id == courant->id) {
-
-                        inserer(file, g->articles[i], listeTaille(file) + 1);
-                        visite[i] = 1;
-                        niveaux[i] = niv + 1;
-                    }
+        /* enfiler les articles qui citent courant */
+        for (i = 0; i < g->V; i++) {
+            if (visite[i]) continue;
+            for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
+                e = recuperer(g->adjList[i], pos);
+                if (e != NULL && e->id == courant->id) {
+                    inserer(file, g->articles[i], listeTaille(file) + 1);
+                    visite[i]  = 1;
+                    niveaux[i] = niv + 1;
                 }
             }
-        }/********************************************/
+        }
     }
 
-    listeDetruire(file);
-    printf("\n  %d niveau(x) de propagation, %d article(s) atteint(s)\n",
+    printf("\n\n  %d niveau(x) de propagation, %d article(s) atteint(s)\n",
            nivMax + 1, nbAtteints);
 
+    listeDetruire(file);
     free(visite);
     free(niveaux);
 }
-
 /* afficher tous les articles accessibles depuis idSrc (BFS simple) */
 void articlesAccessibles(grapheReseau g, int idSrc) {
     int *visite;
@@ -746,10 +754,9 @@ void analyserReseau(grapheReseau g) {
         art        = g->articles[i];
         score_susp = analyserArticle(art);
 
-        if      (art->score_fiabilite < 40) cat = "SUSPECT";
-        else if (art->score_fiabilite < 70) cat = "DOUTEUX";
-        else                                 cat = "FIABLE ";
-
+    if      (art->score_fiabilite < 40)  cat = "SUSPECT";
+    else if (art->score_fiabilite <= 70) cat = "DOUTEUX";
+    else    cat = "FIABLE ";
         printf("  [%s] %s (score : %d)\n", cat, art->titre, art->score_fiabilite);
 
         /* afficher ce qui a declenche la suspicion */
@@ -990,6 +997,8 @@ void simulerSuppression(grapheReseau g, int idArt) {
     free(apres);
 }
 
+
+
 /*
     neutraliser la propagation entre idSrc et idDest :
     supprimer le minimum d'articles intermediaires pour
@@ -999,45 +1008,95 @@ void simulerSuppression(grapheReseau g, int idArt) {
     le moins fiable (score_fiabilite le plus faible)
     jusqu'a ce qu'il n'y ait plus de chemin.
 */
+static int cheminExisteAvecExclus(grapheReseau g, int idSrc, int idDest, int *exclus) {
+    int pos;
+    int *visite;
+    ELEMENT courant, e;
+    LISTE file;
+    int res = 0;
+
+    if (exclus[idSrc] || exclus[idDest]) return 0;
+
+    visite = (int *)calloc(g->V, sizeof(int));
+    if (!visite) return 0;
+
+    file = listeCreer();
+    inserer(file, g->articles[idSrc], 1);
+    visite[idSrc] = 1;
+
+    while (!estVide(file) && !res) {
+        courant = recuperer(file, 1);
+        supprimer(file, 1);
+
+        if (courant->id == idDest) { res = 1; break; }
+
+        for (pos = 1; pos <= listeTaille(g->adjList[courant->id]); pos++) {
+            e = recuperer(g->adjList[courant->id], pos);
+            if (e != NULL && !visite[e->id] && !exclus[e->id]) {
+                visite[e->id] = 1;
+                inserer(file, e, listeTaille(file) + 1);
+            }
+        }
+    }
+
+    listeDetruire(file);
+    free(visite);
+    return res;
+}
+
 int neutraliserPropagation(grapheReseau g, int idSrc, int idDest) {
     int nb, cible, i, scoreMin;
+    int *exclus;
 
-    if (g->articles[idSrc] == ELEMENT_VIDE ||
-        g->articles[idDest] == ELEMENT_VIDE) {
-        printf("article(s) introuvable(s)\n");
+    if (!g || idSrc < 0 || idSrc >= g->V || idDest < 0 || idDest >= g->V) {
+        printf("id invalide.\n");
         return 0;
     }
+    if (g->articles[idSrc] == ELEMENT_VIDE ||
+        g->articles[idDest] == ELEMENT_VIDE) {
+        printf("article(s) introuvable(s).\n");
+        return 0;
+    }
+
+    exclus = (int *)calloc(g->V, sizeof(int));
+    if (!exclus) return 0;
 
     printf("Neutralisation de la propagation de A%d vers A%d :\n", idSrc, idDest);
     nb = 0;
 
-    while (cheminExiste(g, idSrc, idDest)) {
-        /* trouver l'intermediaire avec le score le plus bas */
+    while (cheminExisteAvecExclus(g, idSrc, idDest, exclus)) {
         cible    = -1;
         scoreMin = 101;
 
         for (i = 0; i < g->V; i++) {
             if (i == idSrc || i == idDest) continue;
             if (g->articles[i] == ELEMENT_VIDE) continue;
-            if (g->articles[i]->score_fiabilite < scoreMin) {
-                scoreMin = g->articles[i]->score_fiabilite;
-                cible    = i;
+            if (exclus[i]) continue;
+
+            /* simuler la suppression de i */
+            exclus[i] = 1;
+            if (!cheminExisteAvecExclus(g, idSrc, idDest, exclus)) {
+                /* supprimer i coupe tous les chemins */
+                if (g->articles[i]->score_fiabilite < scoreMin) {
+                    scoreMin = g->articles[i]->score_fiabilite;
+                    cible    = i;
+                }
             }
+            exclus[i] = 0; /* annuler la simulation */
         }
 
         if (cible < 0) break;
 
+        exclus[cible] = 1;
         printf("  Article supprime : %s (score:%d)\n",
-               g->articles[cible]->titre, g->articles[cible]->score_fiabilite);
-        supprimerArticle(g, cible);
+               g->articles[cible]->titre,
+               g->articles[cible]->score_fiabilite);
         nb++;
     }
 
-    if (!cheminExiste(g, idSrc, idDest))
-        printf("Plus aucun chemin de A%d vers A%d.\n", idSrc, idDest);
-    else
-        printf("Impossible de couper le chemin sans toucher source ou destination.\n");
-
+    printf("Plus aucun chemin de A%d vers A%d.\n", idSrc, idDest);
     printf("Nombre d'articles supprimes : %d\n", nb);
+
+    free(exclus);
     return nb;
 }

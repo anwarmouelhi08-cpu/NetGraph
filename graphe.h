@@ -59,6 +59,7 @@ void articlesSuspectsCites(grapheReseau g);
 
 /* -- section 6 : bonus -- */
 void simulerSuppression(grapheReseau g, int idArt);
+static int cheminExisteAvecExclus(grapheReseau g, int idSrc, int idDest, int *exclus);
 int  neutraliserPropagation(grapheReseau g, int idSrc, int idDest);
 
 #endif
