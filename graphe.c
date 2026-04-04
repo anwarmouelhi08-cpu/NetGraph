@@ -65,28 +65,26 @@ grapheReseau chargerGraphe(const char *filename) {
 
     /* deuxieme passe : lire les articles puis les citations */
     while (fgets(ligne, sizeof(ligne), f)) {
-
-        if (ligne[0] == '#' || ligne[0] == '\n') continue;
-
-        if (ligne[0] == 'A') {
-            ELEMENT art = elementCreer();
-            int lu = sscanf(ligne, "A %d \"%99[^\"]\" %49s %d %d %d %d %d %d",
-                            &art->id, art->titre, art->source,
-                            &art->score_fiabilite,
-                            &art->jour, &art->mois, &art->annee,
-                            &art->heure, &art->minute);
-            if (lu < 9) {
-                printf("ligne mal formee ignoree : %s", ligne);
-                elementDetruire(art);
-                continue;
+        if (ligne[0] != '#' && ligne[0] != '\n') {
+            if (ligne[0] == 'A') {
+                ELEMENT art = elementCreer();
+                int lu = sscanf(ligne, "A %d \"%99[^\"]\" %49s %d %d %d %d %d %d",
+                                &art->id, art->titre, art->source,
+                                &art->score_fiabilite,
+                                &art->jour, &art->mois, &art->annee,
+                                &art->heure, &art->minute);
+                if (lu < 9) {
+                    printf("ligne mal formee ignoree : %s", ligne);
+                    elementDetruire(art);
+                } else {
+                    ajouterArticle(g, art);
+                }
             }
-            ajouterArticle(g, art);
-        }
-
-        if (ligne[0] == 'C') {
-            int src, dest;
-            if (sscanf(ligne, "C %d %d", &src, &dest) == 2)
-                ajouterCitation(g, src, dest);
+            if (ligne[0] == 'C') {
+                int src, dest;
+                if (sscanf(ligne, "C %d %d", &src, &dest) == 2)
+                    ajouterCitation(g, src, dest);
+            }
         }
     }
 
@@ -162,15 +160,16 @@ int supprimerArticle(grapheReseau g, int idArt) {
 
     /* supprimer les citations entrantes vers cet article */
     for (i = 0; i < g->V; i++) {
-        if (i == idArt || g->articles[i] == ELEMENT_VIDE) continue;
-        pos = 1;
-        while (pos <= listeTaille(g->adjList[i])) {
-            e = recuperer(g->adjList[i], pos);
-            if (e != NULL && e->id == idArt) {
-                supprimer(g->adjList[i], pos);
-                g->degre_in[idArt]--;
-            } else {
-                pos++;
+        if (i != idArt && g->articles[i] != ELEMENT_VIDE) {
+            pos = 1;
+            while (pos <= listeTaille(g->adjList[i])) {
+                e = recuperer(g->adjList[i], pos);
+                if (e != NULL && e->id == idArt) {
+                    supprimer(g->adjList[i], pos);
+                    g->degre_in[idArt]--;
+                } else {
+                    pos++;
+                }
             }
         }
     }
@@ -200,12 +199,18 @@ int ajouterCitation(grapheReseau g, int idSrc, int idDest) {
     }
 
     /* verifier que la citation n'existe pas deja */
-    for (pos = 1; pos <= listeTaille(g->adjList[idSrc]); pos++) {
+    int dejaExiste = 0;
+    pos = 1;
+    while (pos <= listeTaille(g->adjList[idSrc]) && !dejaExiste) {
         e = recuperer(g->adjList[idSrc], pos);
-        if (e != NULL && e->id == idDest) {
-            printf("citation %d -> %d deja existante\n", idSrc, idDest);
-            return 0;
-        }
+        if (e != NULL && e->id == idDest)
+            dejaExiste = 1;
+        pos++;
+    }
+ 
+    if (dejaExiste) {
+        printf("citation %d -> %d deja existante\n", idSrc, idDest);
+        return 0;
     }
 
     /* on ajoute l'article dest a la fin de la liste d'adjacence de src */
@@ -230,18 +235,24 @@ int supprimerCitation(grapheReseau g, int idSrc, int idDest) {
         return 0;
     }
 
-    for (pos = 1; pos <= listeTaille(g->adjList[idSrc]); pos++) {
+    int trouve = 0;
+    pos = 1;
+    while (pos <= listeTaille(g->adjList[idSrc]) && !trouve) {
         e = recuperer(g->adjList[idSrc], pos);
         if (e != NULL && e->id == idDest) {
             supprimer(g->adjList[idSrc], pos);
             g->degre_in[idDest]--;
             printf("Citation %d -> %d supprimee.\n", idSrc, idDest);
-            return 1;
+            trouve = 1;
+        } else {
+            pos++;
         }
     }
-
-    printf("Citation %d -> %d introuvable.\n", idSrc, idDest);
-    return 0;
+ 
+    if (!trouve)
+        printf("Citation %d -> %d introuvable.\n", idSrc, idDest);
+ 
+    return trouve;
 }
 
 /* afficher le graphe complet */
@@ -290,13 +301,12 @@ void articlesCites(grapheReseau g, int idSrc) {
 
     if (estVide(g->adjList[idSrc])) {
         printf("  (ne cite aucun article)\n");
-        return;
-    }
-
-    for (pos = 1; pos <= listeTaille(g->adjList[idSrc]); pos++) {
-        e = recuperer(g->adjList[idSrc], pos);
-        if (e != NULL)
-            printf("  --> %s\n", e->titre);
+    } else {
+        for (pos = 1; pos <= listeTaille(g->adjList[idSrc]); pos++) {
+            e = recuperer(g->adjList[idSrc], pos);
+            if (e != NULL)
+                printf("  --> %s\n", e->titre);
+        }
     }
 }
 
@@ -315,13 +325,17 @@ void articlesCitants(grapheReseau g, int idDest) {
     trouve = 0;
 
     for (i = 0; i < g->V; i++) {
-        if (g->articles[i] == ELEMENT_VIDE) continue;
-        for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-            e = recuperer(g->adjList[i], pos);
-            if (e != NULL && e->id == idDest) {
-                printf("  --> %s\n", g->articles[i]->titre);
-                trouve = 1;
-                break;
+        if (g->articles[i] != ELEMENT_VIDE) {
+            pos = 1;
+            while (pos <= listeTaille(g->adjList[i])) {
+                e = recuperer(g->adjList[i], pos);
+                if (e != NULL && e->id == idDest) {
+                    printf("  --> %s\n", g->articles[i]->titre);
+                    trouve = 1;
+                    pos = listeTaille(g->adjList[i]) + 1; /* sortir du while */
+                } else {
+                    pos++;
+                }
             }
         }
     }
@@ -444,14 +458,19 @@ void premierCitant(grapheReseau g, int idDest) {
     premier = ELEMENT_VIDE;
 
     for (i = 0; i < g->V; i++) {
-        if (g->articles[i] == ELEMENT_VIDE) continue;
-        for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-            e = recuperer(g->adjList[i], pos);
-            if (e != NULL && e->id == idDest) {
-                /* on garde le plus ancien */
-                if (premier == ELEMENT_VIDE || comparerDates(g->articles[i], premier) < 0)
-                    premier = g->articles[i];
-                break;
+        if (g->articles[i] != ELEMENT_VIDE) {
+            pos = 1;
+            while (pos <= listeTaille(g->adjList[i])) {
+                e = recuperer(g->adjList[i], pos);
+                if (e != NULL && e->id == idDest) {
+                    if (premier == ELEMENT_VIDE ||
+                        comparerDates(g->articles[i], premier) < 0)
+                        premier = g->articles[i];
+                    /* passer a l'article suivant (i) */
+                    pos = listeTaille(g->adjList[i]) + 1;
+                } else {
+                    pos++;
+                }
             }
         }
     }
@@ -512,21 +531,25 @@ void chainePropagation(grapheReseau g, int idSrc)
          * On garde le candidat a la date la plus ancienne.
          */
         for (i = 0; i < g->V; i++) {
-            if (dansChaine[i] || g->articles[i] == ELEMENT_VIDE) continue;
-
-            /* Verifier si l'article i cite quelqu'un deja dans la chaine */
-            for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-                ELEMENT cite = recuperer(g->adjList[i], pos);
-                if (cite == NULL || cite->id < 0 || cite->id >= g->V) continue;
-
-                if (dansChaine[cite->id]) {
-                    /* i cite quelqu'un dans la chaine : i est candidat */
+            if (!dansChaine[i] && g->articles[i] != ELEMENT_VIDE) {
+                /* verifier si i cite quelqu'un deja dans la chaine */
+                int citeDansChaine = 0;
+                pos = 1;
+                while (pos <= listeTaille(g->adjList[i]) && !citeDansChaine) {
+                    ELEMENT cite = recuperer(g->adjList[i], pos);
+                    if (cite != NULL && cite->id >= 0 && cite->id < g->V
+                        && dansChaine[cite->id]) {
+                        citeDansChaine = 1;
+                    }
+                    pos++;
+                }
+ 
+                if (citeDansChaine) {
                     if (prochain == ELEMENT_VIDE ||
                         comparerDates(g->articles[i], prochain) < 0) {
                         prochain = g->articles[i];
                         procId   = i;
                     }
-                    break; /* inutile de continuer pour cet article i */
                 }
             }
         }
@@ -564,13 +587,13 @@ void simulerPropagation(grapheReseau g, int idSrc) {
     LISTE file;
 
     if (!g || idSrc < 0 || idSrc >= g->V) {
-    printf("id %d invalide.\n", idSrc);
-    return;
-}
-if (g->articles[idSrc] == ELEMENT_VIDE) {
-    printf("article %d introuvable.\n", idSrc);
-    return;
-}
+        printf("id %d invalide.\n", idSrc);
+        return;
+    }
+    if (g->articles[idSrc] == ELEMENT_VIDE) {
+        printf("article %d introuvable.\n", idSrc);
+        return;
+    }
 
     visite  = (int *)calloc(g->V, sizeof(int));
     niveaux = (int *)calloc(g->V, sizeof(int));
@@ -718,11 +741,14 @@ int analyserArticle(ELEMENT art) {
     score_susp = 0;
 
     /* verifier les phrases suspectes (+40 max une seule fois) */
-    for (i = 0; i < NB_FAKES; i++) {
+   int fakeTrouve = 0;
+    i = 0;
+    while (i < NB_FAKES && !fakeTrouve) {
         if (strstr(titre_min, BASE_FAKES[i]) != NULL) {
             score_susp += 40;
-            break;
+            fakeTrouve = 1;
         }
+        i++;
     }
 
     /* verifier les mots suspects (+10 chacun) */
@@ -748,29 +774,29 @@ void analyserReseau(grapheReseau g) {
 
     printf("\n===== Rapport d'analyse fake news =====\n\n");
 
-    for (i = 0; i < g->V; i++) {
-        if (g->articles[i] == ELEMENT_VIDE) continue;
-
-        art        = g->articles[i];
-        score_susp = analyserArticle(art);
-
-    if      (art->score_fiabilite < 40)  cat = "SUSPECT";
-    else if (art->score_fiabilite <= 70) cat = "DOUTEUX";
-    else    cat = "FIABLE ";
-        printf("  [%s] %s (score : %d)\n", cat, art->titre, art->score_fiabilite);
-
-        /* afficher ce qui a declenche la suspicion */
-        if (score_susp > 0) {
-            underscoresEnEspaces(art->titre, tmp, sizeof(tmp));
-            versMinuscules(tmp, titre_min, sizeof(titre_min));
-
-            for (j = 0; j < NB_FAKES; j++) {
-                if (strstr(titre_min, BASE_FAKES[j]) != NULL)
-                    printf("          -> phrase : \"%s\"\n", BASE_FAKES[j]);
-            }
-            for (j = 0; j < NB_SUSPECTS; j++) {
-                if (strstr(titre_min, MOTS_SUSPECTS[j]) != NULL)
-                    printf("          -> mot : \"%s\"\n", MOTS_SUSPECTS[j]);
+   for (i = 0; i < g->V; i++) {
+        if (g->articles[i] != ELEMENT_VIDE) {
+            art        = g->articles[i];
+            score_susp = analyserArticle(art);
+ 
+            if      (art->score_fiabilite < 40)  cat = "SUSPECT";
+            else if (art->score_fiabilite <= 70)  cat = "DOUTEUX";
+            else                                  cat = "FIABLE ";
+ 
+            printf("  [%s] %s (score : %d)\n", cat, art->titre, art->score_fiabilite);
+ 
+            if (score_susp > 0) {
+                underscoresEnEspaces(art->titre, tmp, sizeof(tmp));
+                versMinuscules(tmp, titre_min, sizeof(titre_min));
+ 
+                for (j = 0; j < NB_FAKES; j++) {
+                    if (strstr(titre_min, BASE_FAKES[j]) != NULL)
+                        printf("          -> phrase : \"%s\"\n", BASE_FAKES[j]);
+                }
+                for (j = 0; j < NB_SUSPECTS; j++) {
+                    if (strstr(titre_min, MOTS_SUSPECTS[j]) != NULL)
+                        printf("          -> mot : \"%s\"\n", MOTS_SUSPECTS[j]);
+                }
             }
         }
     }
@@ -856,15 +882,15 @@ int *bfsVisite(grapheReseau g, int idSrc) {
     while (!estVide(file)) {
         courant = recuperer(file, 1);
         supprimer(file, 1);
-
+ 
         for (i = 0; i < g->V; i++) {
-            if (g->articles[i] == ELEMENT_VIDE || visite[i]) continue;
-            for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-                e = recuperer(g->adjList[i], pos);
-                if (e != NULL && e->id == courant->id) {
-                    inserer(file, g->articles[i], listeTaille(file) + 1);
-                    visite[i] = 1;
-                    break;
+            if (g->articles[i] != ELEMENT_VIDE && !visite[i]) {
+                for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
+                    e = recuperer(g->adjList[i], pos);
+                    if (e != NULL && e->id == courant->id) {
+                        inserer(file, g->articles[i], listeTaille(file) + 1);
+                        visite[i] = 1;
+                    }
                 }
             }
         }
@@ -933,12 +959,16 @@ void simulerSuppression(grapheReseau g, int idArt) {
     nb_citants = g->degre_in[idArt];
     printf("  - Etait cite par %d article(s) :\n", nb_citants);
     for (i = 0; i < g->V; i++) {
-        if (g->articles[i] == ELEMENT_VIDE) continue;
-        for (pos = 1; pos <= listeTaille(g->adjList[i]); pos++) {
-            e = recuperer(g->adjList[i], pos);
-            if (e != NULL && e->id == idArt) {
-                printf("      %s\n", g->articles[i]->titre);
-                break;
+        if (g->articles[i] != ELEMENT_VIDE) {
+            pos = 1;
+            while (pos <= listeTaille(g->adjList[i])) {
+                e = recuperer(g->adjList[i], pos);
+                if (e != NULL && e->id == idArt) {
+                    printf("      %s\n", g->articles[i]->titre);
+                    pos = listeTaille(g->adjList[i]) + 1; /* sortir du while */
+                } else {
+                    pos++;
+                }
             }
         }
     }
@@ -1068,30 +1098,33 @@ int neutraliserPropagation(grapheReseau g, int idSrc, int idDest) {
         cible    = -1;
         scoreMin = 101;
 
+        while (cheminExisteAvecExclus(g, idSrc, idDest, exclus)) {
+        cible    = -1;
+        scoreMin = 101;
+ 
         for (i = 0; i < g->V; i++) {
-            if (i == idSrc || i == idDest) continue;
-            if (g->articles[i] == ELEMENT_VIDE) continue;
-            if (exclus[i]) continue;
-
-            /* simuler la suppression de i */
-            exclus[i] = 1;
-            if (!cheminExisteAvecExclus(g, idSrc, idDest, exclus)) {
-                /* supprimer i coupe tous les chemins */
-                if (g->articles[i]->score_fiabilite < scoreMin) {
-                    scoreMin = g->articles[i]->score_fiabilite;
-                    cible    = i;
+            if (i != idSrc && i != idDest
+                && g->articles[i] != ELEMENT_VIDE
+                && !exclus[i]) {
+ 
+                exclus[i] = 1;
+                if (!cheminExisteAvecExclus(g, idSrc, idDest, exclus)) {
+                    if (g->articles[i]->score_fiabilite < scoreMin) {
+                        scoreMin = g->articles[i]->score_fiabilite;
+                        cible    = i;
+                    }
                 }
+                exclus[i] = 0;
             }
-            exclus[i] = 0; /* annuler la simulation */
         }
-
-        if (cible < 0) break;
-
-        exclus[cible] = 1;
-        printf("  Article supprime : %s (score:%d)\n",
-               g->articles[cible]->titre,
-               g->articles[cible]->score_fiabilite);
-        nb++;
+ 
+        if (cible >= 0) {
+            exclus[cible] = 1;
+            printf("  Article supprime : %s (score:%d)\n",
+                   g->articles[cible]->titre,
+                   g->articles[cible]->score_fiabilite);
+            nb++;
+        }
     }
 
     printf("Plus aucun chemin de A%d vers A%d.\n", idSrc, idDest);
@@ -1099,4 +1132,5 @@ int neutraliserPropagation(grapheReseau g, int idSrc, int idDest) {
 
     free(exclus);
     return nb;
+}
 }

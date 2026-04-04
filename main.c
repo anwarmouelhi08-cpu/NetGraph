@@ -10,23 +10,24 @@
 #include <string.h>
 /************/
 
-
 int lireEntier(int *x) {
-    while (scanf("%d", x) != 1) {
-        printf("Entree invalide, recommencez : ");
-        while (getchar() != '\n');
-    }
-    return 1;
+    int lu = scanf("%d", x);
+    int c;
+    if (!lu) 
+        *x = -1;
+    while ((c = getchar()) != '\n' && c != EOF);
+    return lu;
 }
 
 int lireEntierBorne(const char *invite, int min, int max) {
     int val;
+    int ok;
     do {
         printf("%s", invite);
-        lireEntier(&val);
-        if (val < min || val > max)
+        ok = lireEntier(&val);
+        if (!ok || val < min || val > max)
             printf("Valeur invalide ! Doit etre entre %d et %d, recommencez.\n", min, max);
-    } while (val < min || val > max);
+    } while (!ok || val < min || val > max);
     return val;
 }
 
@@ -62,6 +63,7 @@ int main() {
     int choix, id, idSrc, idDest;
     char filename[100];
     ELEMENT art;
+    int c;
 
     do {
         afficherMenu();
@@ -79,46 +81,52 @@ int main() {
             g = chargerGraphe(filename);
             if (g == NULL) printf("Echec du chargement.\n");
             break;
-case 2:
-    if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+        case 2:
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n");
+                break; 
+            }
 
-    printf("id : ");
-    lireEntier(&id);
+            printf("id : ");
+            if (!lireEntier(&id)) {
+                printf("Erreur : id doit etre un entier.\n");
+                break;
+            }
+            if (id < 0) {
+                printf("Erreur : id doit etre positif.\n");
+                break;
+            }
+            if (id < g->V && g->articles[id] != ELEMENT_VIDE) {
+                printf("Erreur : id %d deja utilise.\n", id);
+                break;
+            }
 
-    if (id < 0) {
-        printf("Erreur : id doit etre positif.\n");
-        break;
-    }
-    if (id < g->V && g->articles[id] != ELEMENT_VIDE) {
-        printf("Erreur : id %d deja utilise.\n", id);
-        break;
-    }
+            art = elementCreer();
+            art->id = id;
 
-    art = elementCreer();
-    art->id = id;
 
-    while (getchar() != '\n');
-    printf("titre  : ");
-    fgets(art->titre, sizeof(art->titre), stdin);
-    art->titre[strcspn(art->titre, "\n")] = '\0';
+            printf("titre  : ");
+            fgets(art->titre, sizeof(art->titre), stdin);
+            art->titre[strcspn(art->titre, "\n")] = '\0';
 
-    printf("source : ");
-    scanf("%49s", art->source);
+            printf("source : ");
+            scanf("%49s", art->source);
 
-    art->score_fiabilite = lireEntierBorne("score  (0-100)     : ", 0,    100);
-    art->jour            = lireEntierBorne("jour   (1-31)      : ", 1,    31);
-    art->mois            = lireEntierBorne("mois   (1-12)      : ", 1,    12);
-    art->annee           = lireEntierBorne("annee  (1900-2100) : ", 1900, 2100);
-    art->heure           = lireEntierBorne("heure  (0-23)      : ", 0,    23);
-    art->minute          = lireEntierBorne("minute (0-59)      : ", 0,    59);
+            art->score_fiabilite = lireEntierBorne("score  (0-100)     : ", 0,    100);
+            art->jour            = lireEntierBorne("jour   (1-31)      : ", 1,    31);
+            art->mois            = lireEntierBorne("mois   (1-12)      : ", 1,    12);
+            art->annee           = lireEntierBorne("annee  (1900-2100) : ", 1900, 2100);
+            art->heure           = lireEntierBorne("heure  (0-23)      : ", 0,    23);
+            art->minute          = lireEntierBorne("minute (0-59)      : ", 0,    59);
 
-    if (!ajouterArticle(g, art)) {
-        elementDetruire(art);
-        printf("Echec ajout article.\n");
-    } else {
-        printf("Article ajoute avec succes (id=%d).\n", art->id);
-    }
-    break;
+            if (!ajouterArticle(g, art)) {
+                elementDetruire(art);
+                printf("Echec ajout article.\n");
+            }
+            else {
+                printf("Article ajoute avec succes (id=%d).\n", art->id);
+            }
+            break;
         case 3:
             /* ajouter une citation */
             if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
@@ -136,47 +144,67 @@ case 2:
                 break;
             }
             /**************/
-            ajouterCitation(g, idSrc, idDest);
+            if (ajouterCitation(g, idSrc, idDest))
+                printf("Citation %d -> %d ajoutee avec succes.\n", idSrc, idDest);
+            else
+                printf("Echec : verifiez les ids.\n");
             break;
 
         case 4:
             /* supprimer un article */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id de l'article a supprimer : "); lireEntier(&id);
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n");
+                break; }
+            printf("id de l'article a supprimer : "); 
+            lireEntier(&id);
             supprimerArticle(g, id);
             break;
 
         case 5:
             /* supprimer une citation */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id source : ");      lireEntier(&idSrc);
-            printf("id destination : "); lireEntier(&idDest);
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
+            printf("id source : ");      
+            lireEntier(&idSrc);
+            printf("id destination : "); 
+            lireEntier(&idDest);
             supprimerCitation(g, idSrc, idDest);
             break;
 
         case 6:
             /* afficher le graphe */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             afficherGraphe(g);
             break;
 
         case 7:
             /* articles cites par un article */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id de l'article : "); lireEntier(&id);;
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
+            printf("id de l'article : "); 
+            lireEntier(&id);;
             articlesCites(g, id);
             break;
 
         case 8:
             /* articles qui citent un article */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id de l'article : "); lireEntier(&id);;
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
+            printf("id de l'article : "); 
+            lireEntier(&id);;
             articlesCitants(g, id);
             break;
 
         case 9:
             /* sources originales et articles isoles */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             sourcesOriginales(g);
             printf("\n");
             articlesIsoles(g);
@@ -184,33 +212,45 @@ case 2:
 
         case 10:
             /* article le plus cite */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             articlePlusCite(g);
             break;
 
         case 11:
             /* trier par date */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             trierParDate(g);
             break;
 
         case 12:
             /* premier citant */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id de l'article : "); lireEntier(&id);;
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
+            printf("id de l'article : "); 
+            lireEntier(&id);;
             premierCitant(g, id);
             break;
 
         case 13:
             /* chaine de propagation */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id de l'article source : "); lireEntier(&id);;
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
+            printf("id de l'article source : "); 
+            lireEntier(&id);;
             chainePropagation(g, id);
             break;
 
         case 14:
             /* simuler propagation BFS */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
 
             /**************/
             printf("id de l'article source : ");
@@ -224,7 +264,9 @@ case 2:
         case 15:
             /* articles accessibles */
             /**************/
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
 
             printf("id de l'article source : ");
             if (!lireEntier(&id)) {
@@ -238,28 +280,38 @@ case 2:
 
         case 16:
             /* analyser le reseau (fake news) */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             analyserReseau(g);
             break;
 
         case 17:
             /* articles suspects les plus cites */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             articlesSuspectsCites(g);
             break;
 
         case 18:
             /* bonus : simuler suppression */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+                break; }
             printf("id de l'article a supprimer : "); lireEntier(&id);;
             simulerSuppression(g, id);
             break;
 
         case 19:
             /* bonus : neutraliser propagation */
-            if (g == NULL) { printf("Aucun graphe charge.\n"); break; }
-            printf("id source : ");      lireEntier(&idSrc);
-            printf("id destination : "); lireEntier(&idDest);
+            if (g == NULL) { 
+                printf("Aucun graphe charge.\n"); 
+             break; }
+            printf("id source : ");      
+            lireEntier(&idSrc);
+            printf("id destination : "); 
+            lireEntier(&idDest);
             neutraliserPropagation(g, idSrc, idDest);
             break;
 
