@@ -198,9 +198,10 @@ void listeAfficher(LISTE L) {
 /* ---- copie ---- */
 
 LISTE listeCopier(LISTE L) {
-    LISTE LR = listeCreer();
+    LISTE LR;
     int i;
     ELEMENT elt;
+    LR = listeCreer();
     for (i = 1; i <= L->lg; i++) {
         elt = elementCreer();
         elementCopier(&elt, recuperer(L, i));

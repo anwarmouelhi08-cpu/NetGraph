@@ -9,16 +9,15 @@
 #include "graphe.h"
 #include <string.h>
 /************/
-
 int lireEntier(int *x) {
-    int lu = scanf("%d", x);
+    int lu;
     int c;
+    lu = scanf("%d", x);
     if (!lu) 
         *x = -1;
     while ((c = getchar()) != '\n' && c != EOF);
     return lu;
 }
-
 int lireEntierBorne(const char *invite, int min, int max) {
     int val;
     int ok;
@@ -314,7 +313,7 @@ int main() {
             lireEntier(&idDest);
             neutraliserPropagation(g, idSrc, idDest);
             break;
-
+                
         case 0:
             printf("Au revoir !\n");
             break;
